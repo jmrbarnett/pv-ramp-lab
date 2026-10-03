@@ -21,7 +21,7 @@ def limit_ramp(current_kw: float, target_kw: float,
         return target_kw
     if delta > 0:
         return current_kw + max_step
-    return current_kw + max_step
+    return current_kw - max_step
 
 
 def simulate_ramp(start_kw: float, target_kw: float,
