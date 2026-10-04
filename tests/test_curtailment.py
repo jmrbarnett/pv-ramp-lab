@@ -1,0 +1,75 @@
+"""Lesson 2 exercises: fixtures, using a closed-loop curtailment controller.
+
+Fixtures live in tests/conftest.py. Complete the exercises in order and
+run `pytest -v` after each one. Exercises 2-5 need you to add a fixture
+to conftest.py first.
+"""
+import pytest
+
+from pv_controls.curtailment import (effective_limit, run_closed_loop,
+                                     save_csv, settling_time)
+
+
+# --- Example (already done) -------------------------------------------
+def test_open_loop_output_shows_losses(plant):
+    # Command 500 kW for 30 s with no controller: POI settles 2% low
+    for _ in range(30):
+        poi = plant.step(500, dt_s=1)
+    assert poi == pytest.approx(490, rel=1e-3)
+
+
+# --- Exercise 1 (warm-up, no fixtures) ---------------------------------
+# Test effective_limit(). Use @pytest.mark.parametrize to show the most
+# restrictive limit wins (rated, operator %, export limit). Then use
+# pytest.raises for operator_pct = 120.
+
+
+# --- Exercise 2 --------------------------------------------------------
+# Using the `plant` and `controller` fixtures, hold a 600 kW limit for
+# 120 s. Assert the final POI power is within 0.1% of 600 kW.
+# (The integral term is what removes the 2% loss error.)
+
+
+# --- Exercise 3 --------------------------------------------------------
+# Using make_plant and make_controller, show WHY the integral matters:
+# with ki=0 (proportional only), the final POI error after 240 s at a
+# 600 kW limit is MORE than 1% of the limit.
+
+
+# --- Exercise 4 --------------------------------------------------------
+# Using step_down_result (a fixture built from other fixtures), write
+# TWO tests on the part after the step (index 60 onward):
+#   a) POI settles within +/-1% of 600 kW in 30 s or less
+#      (use settling_time())
+#   b) POI never undershoots below 90% of 600 kW
+
+
+# --- Exercise 5 --------------------------------------------------------
+# Using the parametrized `rated_kw` fixture with make_plant and
+# make_controller, run a limit of 60% of rated for 120 s and assert the
+# final POI is within 0.1% of that limit. pytest -v should show THREE
+# test runs from this one function.
+
+
+# --- Exercise 6 --------------------------------------------------------
+# Cloud event and anti-windup. Limit 600 kW for 240 s. Available power:
+# 1000 kW for 60 s, 400 kW for 60 s (cloud), then 1000 kW for 120 s.
+# Pass available_kw=... to run_closed_loop().
+#   a) With the default controller, POI after the cloud (index 120
+#      onward) never exceeds 600 kW by more than 5%.
+#   b) With anti-windup effectively disabled
+#      (make_controller(integral_limit_kw=1e9)), the overshoot is
+#      MORE than 20%. This proves the guard matters.
+
+
+# --- Exercise 7 --------------------------------------------------------
+# Ramp limit (Lesson 1 reused). With make_controller(max_ramp_kw_per_s=20),
+# run a 600 kW limit from 0 kW for 120 s. Assert no change between
+# consecutive commands exceeds 20 kW (include the starting 0 kW).
+
+
+# --- Exercise 8 --------------------------------------------------------
+# Built-in fixture tmp_path: pytest gives each test a fresh temporary
+# folder. Run a short simulation, save_csv() it to tmp_path / "run.csv",
+# then assert the header is "t,limit,command,poi" and there is one data
+# row per time step.
