@@ -22,6 +22,22 @@ def test_open_loop_output_shows_losses(plant):
 # Test effective_limit(). Use @pytest.mark.parametrize to show the most
 # restrictive limit wins (rated, operator %, export limit). Then use
 # pytest.raises for operator_pct = 120.
+@pytest.mark.parametrize("rated_kw, operator_pct, export_limit_kw, expected", [
+    (1000, 80, None, 800),      # operator_pct is most restrictive
+    (1000, 120, None, ValueError),  # invalid operator_pct
+    (1000, 90, 850, 850),       # export_limit_kw is most restrictive
+    (1000, 100, None, 1000),    # rated_kw is most restrictive
+    (500, 50, 300, 250),        # operator_pct is most restrictive
+    (500, 60, None, 300),       # operator_pct is most restrictive
+    (500, 70, 400, 350),        # operator_pct is most restrictive
+])
+def test_effective_limit(rated_kw, operator_pct, export_limit_kw, expected):
+    if expected == ValueError:
+        with pytest.raises(ValueError):
+            effective_limit(rated_kw, operator_pct, export_limit_kw)
+    else:
+        result = effective_limit(rated_kw, operator_pct, export_limit_kw)
+        assert result == expected
 
 
 # --- Exercise 2 --------------------------------------------------------
