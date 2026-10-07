@@ -44,12 +44,23 @@ def test_effective_limit(rated_kw, operator_pct, export_limit_kw, expected):
 # Using the `plant` and `controller` fixtures, hold a 600 kW limit for
 # 120 s. Assert the final POI power is within 0.1% of 600 kW.
 # (The integral term is what removes the 2% loss error.)
-
+def test_closed_loop_600kw_limit(plant, controller):
+    limits = [600.0] * 120
+    result = run_closed_loop(plant, controller, limits)
+    final_poi = result["poi"][-1]
+    assert final_poi == pytest.approx(600, rel=1e-3)
 
 # --- Exercise 3 --------------------------------------------------------
 # Using make_plant and make_controller, show WHY the integral matters:
 # with ki=0 (proportional only), the final POI error after 240 s at a
 # 600 kW limit is MORE than 1% of the limit.
+def test_closed_loop_no_integral(make_plant, make_controller):
+    plant = make_plant()
+    controller = make_controller(ki=0)  # override integral gain to 0
+    limits = [600.0] * 240
+    result = run_closed_loop(plant, controller, limits)
+    final_poi = result["poi"][-1]
+    assert abs(final_poi - 600) > 6  # more than 1% error
 
 
 # --- Exercise 4 --------------------------------------------------------
