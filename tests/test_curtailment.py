@@ -69,6 +69,13 @@ def test_closed_loop_no_integral(make_plant, make_controller):
 #   a) POI settles within +/-1% of 600 kW in 30 s or less
 #      (use settling_time())
 #   b) POI never undershoots below 90% of 600 kW
+def test_step_down_settling_time(step_down_result):
+    poi_after_step = step_down_result["poi"][60:]  # after the step
+    t_settle = settling_time(poi_after_step, target=600, tolerance=6)  # 1% of 600 kW
+    assert (t_settle != None and t_settle <= 30.0)
+def test_step_down_no_undershoot(step_down_result):
+    poi_after_step = step_down_result["poi"][60:]  # after the step
+    assert min(poi_after_step) >= 600 * 0.9
 
 
 # --- Exercise 5 --------------------------------------------------------
