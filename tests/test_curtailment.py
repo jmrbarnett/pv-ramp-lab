@@ -83,6 +83,15 @@ def test_step_down_no_undershoot(step_down_result):
 # make_controller, run a limit of 60% of rated for 120 s and assert the
 # final POI is within 0.1% of that limit. pytest -v should show THREE
 # test runs from this one function.
+pytest.mark.parametrize("rated_kw", [500, 1000, 5000], ids=lambda kw: f"{kw}kW")
+def test_rated_kw_limits(make_plant, make_controller, rated_kw):
+    plant = make_plant(rated_kw=rated_kw)
+    controller = make_controller(rated_kw=rated_kw)
+    limit = 0.6 * rated_kw
+    limits = [limit] * 120
+    result = run_closed_loop(plant, controller, limits)
+    final_poi = result["poi"][-1]
+    assert final_poi == pytest.approx(limit, rel=1e-3)
 
 
 # --- Exercise 6 --------------------------------------------------------
@@ -94,6 +103,20 @@ def test_step_down_no_undershoot(step_down_result):
 #   b) With anti-windup effectively disabled
 #      (make_controller(integral_limit_kw=1e9)), the overshoot is
 #      MORE than 20%. This proves the guard matters.
+def test_cloud_event_anti_windup(make_plant, make_controller):
+    plant = make_plant()
+    controller = make_controller()  # default anti-windup
+    limits = [600.0] * 240
+    available_kw = [1000.0] * 60 + [400.0] * 60 + [1000.0] * 120
+    result = run_closed_loop(plant, controller, limits, available_kw)
+    poi_after_cloud = result["poi"][120:]  # after the cloud
+    assert max(poi_after_cloud) <= 600 * 1.05  # no more than 5% overshoot
+
+    # Now disable anti-windup and check for overshoot >20%
+    controller_no_windup = make_controller(integral_limit_kw=1e9)
+    result_no_windup = run_closed_loop(plant, controller_no_windup, limits, available_kw)
+    poi_after_cloud_no_windup = result_no_windup["poi"][120:]
+    assert max(poi_after_cloud_no_windup) > 600 * 1.2  # more than 20% overshoot
 
 
 # --- Exercise 7 --------------------------------------------------------
