@@ -6,6 +6,7 @@ to conftest.py first.
 """
 import pytest
 
+from pv_controls import ramp
 from pv_controls.curtailment import (effective_limit, run_closed_loop,
                                      save_csv, settling_time)
 
@@ -13,6 +14,7 @@ from pv_controls.curtailment import (effective_limit, run_closed_loop,
 # --- Example (already done) -------------------------------------------
 def test_open_loop_output_shows_losses(plant):
     # Command 500 kW for 30 s with no controller: POI settles 2% low
+    poi = None
     for _ in range(30):
         poi = plant.step(500, dt_s=1)
     assert poi == pytest.approx(490, rel=1e-3)
@@ -73,6 +75,7 @@ def test_step_down_settling_time(step_down_result):
     poi_after_step = step_down_result["poi"][60:]  # after the step
     t_settle = settling_time(poi_after_step, target=600, tolerance=6)  # 1% of 600 kW
     assert (t_settle != None and t_settle <= 30.0)
+
 def test_step_down_no_undershoot(step_down_result):
     poi_after_step = step_down_result["poi"][60:]  # after the step
     assert min(poi_after_step) >= 600 * 0.9
@@ -110,19 +113,28 @@ def test_cloud_event_anti_windup(make_plant, make_controller):
     available_kw = [1000.0] * 60 + [400.0] * 60 + [1000.0] * 120
     result = run_closed_loop(plant, controller, limits, available_kw)
     poi_after_cloud = result["poi"][120:]  # after the cloud
-    assert max(poi_after_cloud) <= 600 * 1.05  # no more than 5% overshoot
+    print(f"Max poi after cloud: {max(poi_after_cloud)}")
+    assert max(poi_after_cloud) <= 600 * 1.05, f"Max poi after cloud: {max(poi_after_cloud)}"  # no more than 5% overshoot
 
     # Now disable anti-windup and check for overshoot >20%
     controller_no_windup = make_controller(integral_limit_kw=1e9)
     result_no_windup = run_closed_loop(plant, controller_no_windup, limits, available_kw)
     poi_after_cloud_no_windup = result_no_windup["poi"][120:]
-    assert max(poi_after_cloud_no_windup) > 600 * 1.2  # more than 20% overshoot
+    assert max(poi_after_cloud_no_windup) > 600 * 1.2, f"Max poi after cloud (no windup): {max(poi_after_cloud_no_windup)}"  # more than 20% overshoot
 
 
 # --- Exercise 7 --------------------------------------------------------
 # Ramp limit (Lesson 1 reused). With make_controller(max_ramp_kw_per_s=20),
 # run a 600 kW limit from 0 kW for 120 s. Assert no change between
-# consecutive commands exceeds 20 kW (include the starting 0 kW).
+# consecutive commands exceeds 20 kW (include the starting 0 kW).  
+def test_ramp_limit(make_plant, make_controller):
+    plant = make_plant()
+    controller = make_controller(max_ramp_kw_per_s=20)
+    limits = ramp.simulate_ramp(start_kw=0, target_kw=600, max_ramp_kw_per_s=20, dt_s=1, max_steps=120)
+    result = run_closed_loop(plant, controller, limits)
+    commands = result["command"]
+    for i in range(1, len(commands)):
+        assert abs(commands[i] - commands[i - 1]) <= 20, f"Ramp exceeded at step {i}: {commands[i]} vs {commands[i-1]}"
 
 
 # --- Exercise 8 --------------------------------------------------------
@@ -130,3 +142,17 @@ def test_cloud_event_anti_windup(make_plant, make_controller):
 # folder. Run a short simulation, save_csv() it to tmp_path / "run.csv",
 # then assert the header is "t,limit,command,poi" and there is one data
 # row per time step.
+def test_save_csv_writes_header_rows(tmp_path, plant, controller):
+    limits = [600.0] * 10
+    result = run_closed_loop(plant, controller, limits)
+    csv_path = tmp_path / "run.csv"
+    save_csv(result, csv_path)
+
+    with open(csv_path, 'r') as f:
+        lines = f.readlines()
+    
+    # Check header
+    assert lines[0].strip() == "t,limit,command,poi"
+
+    # Check number of data rows matches number of time steps
+    assert len(lines) - 1 == len(limits)  # subtract 1 for header

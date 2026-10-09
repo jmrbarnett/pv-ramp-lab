@@ -72,4 +72,5 @@ def step_down_result(make_plant, make_controller):
 # Return request.param. Optional: ids=lambda kw: f"{kw}kW"
 @pytest.fixture(params=[500, 1000, 5000], ids=lambda kw: f"{kw}kW")
 def rated_kw(request):
+    """Parametrized fixture for rated_kw: 500, 1000, 5000 kW."""    
     return request.param
