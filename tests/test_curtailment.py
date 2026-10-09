@@ -113,7 +113,6 @@ def test_cloud_event_anti_windup(make_plant, make_controller):
     available_kw = [1000.0] * 60 + [400.0] * 60 + [1000.0] * 120
     result = run_closed_loop(plant, controller, limits, available_kw)
     poi_after_cloud = result["poi"][120:]  # after the cloud
-    print(f"Max poi after cloud: {max(poi_after_cloud)}")
     assert max(poi_after_cloud) <= 600 * 1.05, f"Max poi after cloud: {max(poi_after_cloud)}"  # no more than 5% overshoot
 
     # Now disable anti-windup and check for overshoot >20%
